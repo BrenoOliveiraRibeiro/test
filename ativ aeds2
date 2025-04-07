@@ -1,0 +1,291 @@
+Produto.java
+java
+Copiar
+Editar
+public abstract class Produto {
+    protected String codigo;
+    protected String nome;
+    protected double preco;
+    protected int estoque;
+
+    public Produto(String codigo, String nome, double preco, int estoque) {
+        this.codigo = codigo;
+        this.nome = nome;
+        this.preco = preco;
+        this.estoque = estoque;
+    }
+
+    public String getCodigo() {
+        return codigo;
+    }
+
+    public String getNome() {
+        return nome;
+    }
+
+    public double getPreco() {
+        return preco;
+    }
+
+    public int getEstoque() {
+        return estoque;
+    }
+
+    public void reduzirEstoque(int quantidade) {
+        this.estoque -= quantidade;
+    }
+
+    public abstract String getTipo();
+
+    public String toCSV() {
+        return String.format("%s,%s,%.2f,%d,%s", codigo, nome, preco, estoque, getTipo());
+    }
+}
+📁 ProdutoPerecivel.java
+java
+Copiar
+Editar
+public class ProdutoPerecivel extends Produto {
+    public ProdutoPerecivel(String codigo, String nome, double preco, int estoque) {
+        super(codigo, nome, preco, estoque);
+    }
+
+    @Override
+    public String getTipo() {
+        return "Perecível";
+    }
+}
+📁 ProdutoNaoPerecivel.java
+java
+Copiar
+Editar
+public class ProdutoNaoPerecivel extends Produto {
+    public ProdutoNaoPerecivel(String codigo, String nome, double preco, int estoque) {
+        super(codigo, nome, preco, estoque);
+    }
+
+    @Override
+    public String getTipo() {
+        return "Não Perecível";
+    }
+}
+📁 Pedido.java
+java
+Copiar
+Editar
+import java.util.*;
+
+public class Pedido {
+    private List<Produto> itens;
+    private double valorTotal;
+
+    public Pedido() {
+        this.itens = new ArrayList<>();
+        this.valorTotal = 0;
+    }
+
+    public void adicionarProduto(Produto produto, int quantidade) {
+        if (produto.getEstoque() >= quantidade) {
+            produto.reduzirEstoque(quantidade);
+            for (int i = 0; i < quantidade; i++) {
+                itens.add(produto);
+                valorTotal += produto.getPreco();
+            }
+        } else {
+            System.out.println("Estoque insuficiente para: " + produto.getNome());
+        }
+    }
+
+    public double getValorTotal() {
+        return valorTotal;
+    }
+
+    public void mostrarResumo() {
+        System.out.println("Resumo do Pedido:");
+        for (Produto produto : itens) {
+            System.out.println(produto.getNome() + " - R$ " + produto.getPreco());
+        }
+        System.out.println("Total: R$ " + valorTotal);
+    }
+}
+📁 GerenciadorEstoque.java
+java
+Copiar
+Editar
+import java.io.*;
+import java.util.*;
+
+public class GerenciadorEstoque {
+    private List<Produto> produtos;
+    private final String arquivoCSV = "estoque.csv";
+
+    public GerenciadorEstoque() {
+        this.produtos = new ArrayList<>();
+        carregarDoCSV();
+    }
+
+    public void cadastrarProduto(Produto produto) {
+        produtos.add(produto);
+        salvarNoCSV();
+    }
+
+    public void listarProdutos() {
+        for (Produto p : produtos) {
+            System.out.printf("%s | %s | R$ %.2f | %d unidades | %s%n",
+                    p.getCodigo(), p.getNome(), p.getPreco(), p.getEstoque(), p.getTipo());
+        }
+    }
+
+    public void listarOrdenadoPorNome() {
+        produtos.stream()
+                .sorted(Comparator.comparing(Produto::getNome))
+                .forEach(p -> System.out.println(p.getNome() + " - R$" + p.getPreco()));
+    }
+
+    public void listarOrdenadoPorPreco() {
+        produtos.stream()
+                .sorted(Comparator.comparingDouble(Produto::getPreco))
+                .forEach(p -> System.out.println(p.getNome() + " - R$" + p.getPreco()));
+    }
+
+    public void filtrarPorTipo(String tipo) {
+        produtos.stream()
+                .filter(p -> p.getTipo().equalsIgnoreCase(tipo))
+                .forEach(p -> System.out.println(p.getNome() + " - " + p.getTipo()));
+    }
+
+    public Produto buscarPorCodigo(String codigo) {
+        return produtos.stream()
+                .filter(p -> p.getCodigo().equalsIgnoreCase(codigo))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private void salvarNoCSV() {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(arquivoCSV))) {
+            for (Produto p : produtos) {
+                writer.write(p.toCSV());
+                writer.newLine();
+            }
+        } catch (IOException e) {
+            System.out.println("Erro ao salvar CSV: " + e.getMessage());
+        }
+    }
+
+    private void carregarDoCSV() {
+        produtos.clear();
+        try (BufferedReader reader = new BufferedReader(new FileReader(arquivoCSV))) {
+            String linha;
+            while ((linha = reader.readLine()) != null) {
+                String[] partes = linha.split(",");
+                String codigo = partes[0];
+                String nome = partes[1];
+                double preco = Double.parseDouble(partes[2]);
+                int estoque = Integer.parseInt(partes[3]);
+                String tipo = partes[4];
+
+                if (tipo.equalsIgnoreCase("Perecível")) {
+                    produtos.add(new ProdutoPerecivel(codigo, nome, preco, estoque));
+                } else {
+                    produtos.add(new ProdutoNaoPerecivel(codigo, nome, preco, estoque));
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("Erro ao carregar CSV: " + e.getMessage());
+        }
+    }
+}
+📁 Principal.java
+java
+Copiar
+Editar
+import java.util.Scanner;
+
+public class Principal {
+    public static void main(String[] args) {
+        GerenciadorEstoque estoque = new GerenciadorEstoque();
+        Scanner scanner = new Scanner(System.in);
+        Pedido pedidoAtual = new Pedido();
+
+        while (true) {
+            System.out.println("\n1. Cadastrar Produto");
+            System.out.println("2. Listar Produtos");
+            System.out.println("3. Listar por Nome");
+            System.out.println("4. Listar por Preço");
+            System.out.println("5. Filtrar por Tipo");
+            System.out.println("6. Adicionar ao Pedido");
+            System.out.println("7. Ver Pedido");
+            System.out.println("0. Sair");
+            System.out.print("Escolha: ");
+            int opcao = scanner.nextInt();
+            scanner.nextLine();
+
+            switch (opcao) {
+                case 1:
+                    System.out.print("Código: ");
+                    String cod = scanner.nextLine();
+                    System.out.print("Nome: ");
+                    String nome = scanner.nextLine();
+                    System.out.print("Preço: ");
+                    double preco = scanner.nextDouble();
+                    System.out.print("Estoque: ");
+                    int estoqueQtd = scanner.nextInt();
+                    scanner.nextLine();
+                    System.out.print("Tipo (Perecível/Não Perecível): ");
+                    String tipo = scanner.nextLine();
+
+                    Produto novo;
+                    if (tipo.equalsIgnoreCase("Perecível")) {
+                        novo = new ProdutoPerecivel(cod, nome, preco, estoqueQtd);
+                    } else {
+                        novo = new ProdutoNaoPerecivel(cod, nome, preco, estoqueQtd);
+                    }
+                    estoque.cadastrarProduto(novo);
+                    break;
+
+                case 2:
+                    estoque.listarProdutos();
+                    break;
+
+                case 3:
+                    estoque.listarOrdenadoPorNome();
+                    break;
+
+                case 4:
+                    estoque.listarOrdenadoPorPreco();
+                    break;
+
+                case 5:
+                    System.out.print("Tipo a filtrar (Perecível/Não Perecível): ");
+                    String filtro = scanner.nextLine();
+                    estoque.filtrarPorTipo(filtro);
+                    break;
+
+                case 6:
+                    System.out.print("Código do Produto: ");
+                    String codigoProduto = scanner.nextLine();
+                    Produto prodSelecionado = estoque.buscarPorCodigo(codigoProduto);
+                    if (prodSelecionado != null) {
+                        System.out.print("Quantidade: ");
+                        int qtd = scanner.nextInt();
+                        scanner.nextLine();
+                        pedidoAtual.adicionarProduto(prodSelecionado, qtd);
+                    } else {
+                        System.out.println("Produto não encontrado.");
+                    }
+                    break;
+
+                case 7:
+                    pedidoAtual.mostrarResumo();
+                    break;
+
+                case 0:
+                    System.out.println("Encerrando...");
+                    return;
+
+                default:
+                    System.out.println("Opção inválida.");
+            }
+        }
+    }
+}
